@@ -26,7 +26,7 @@ export default function Page() {
       <footer className="border-t border-border bg-surface/60 px-8 py-2">
         <div className="mx-auto flex max-w-[1600px] flex-wrap items-center justify-between gap-2 font-mono text-[10px] uppercase tracking-[0.16em] text-meta">
           <span>uranus · webmcp gateway · v0.1.0 · P-256 signed</span>
-          <span>openai webmcp challenge · deadline 2026-09-03</span>
+          <span>openai webmcp challenge</span>
         </div>
       </footer>
     </main>
