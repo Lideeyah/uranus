@@ -1,0 +1,47 @@
+# Fly.io app config for the Uranus bridge server.
+# Replace `app` with a unique name you own before first deploy — or let
+# `flyctl launch` interactively generate one.
+app = "uranus-bridge"
+primary_region = "iad"          # pick the region closest to your users
+kill_signal = "SIGINT"
+kill_timeout = "5s"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  URANUS_BRIDGE_PORT = "3223"
+  URANUS_TIMEOUT_MS = "120000"
+
+# Persistent volume so the ledger and policy survive machine restarts.
+# Create the volume with: fly volumes create uranus_data --size 1 --region iad
+[[mounts]]
+  source = "uranus_data"
+  destination = "/app/.uranus"
+
+[http_service]
+  internal_port = 3223
+  force_https = true
+  auto_stop_machines = "off"     # keep the WebSocket bridge warm
+  auto_start_machines = true
+  min_machines_running = 1
+  processes = ["app"]
+
+  # WebSocket concurrency: default limits are tight; bump so many browser
+  # clients can hold long-lived /ws connections at once.
+  [http_service.concurrency]
+    type = "connections"
+    hard_limit = 200
+    soft_limit = 150
+
+  [[http_service.checks]]
+    interval = "30s"
+    timeout = "5s"
+    grace_period = "10s"
+    method = "GET"
+    path = "/health"
+
+[[vm]]
+  cpu_kind = "shared"
+  cpus = 1
+  memory = "512mb"
