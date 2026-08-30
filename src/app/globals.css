@@ -1,0 +1,66 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body {
+  background-color: #0b0b0c;
+  color: #ededef;
+  min-height: 100vh;
+}
+
+body {
+  font-feature-settings: 'ss01', 'cv11', 'cv02';
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Custom scrollbar */
+.uranus-scroll::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.uranus-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.uranus-scroll::-webkit-scrollbar-thumb {
+  background: #232326;
+  border-radius: 3px;
+}
+.uranus-scroll::-webkit-scrollbar-thumb:hover {
+  background: #323238;
+}
+
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.fade-in-up {
+  animation: fade-in-up 180ms ease-out both;
+}
+
+/* Subtle pulse for the single "listening" indicator dot only */
+@keyframes soft-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}
+
+.soft-pulse {
+  animation: soft-pulse 2.4s ease-in-out infinite;
+}
