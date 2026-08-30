@@ -1,0 +1,40 @@
+{
+  "name": "uranus-webmcp-gateway",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently -k -n web,bridge -c cyan,magenta \"npm:dev:web\" \"npm:dev:bridge\"",
+    "dev:web": "next dev",
+    "dev:bridge": "./scripts/with-secrets.sh tsx watch src/server/bridge-server.ts",
+    "build": "next build",
+    "start": "concurrently -k -n web,bridge -c cyan,magenta \"next start\" \"./scripts/with-secrets.sh tsx src/server/bridge-server.ts\"",
+    "mcp-bridge": "./scripts/with-secrets.sh tsx src/server/mcp-bridge.ts",
+    "secrets:set": "read -s -p 'OPENAI_API_KEY: ' K && security add-generic-password -a \"$USER\" -s uranus-openai-key -U -w \"$K\" && unset K && echo && echo stored",
+    "secrets:show-status": "security find-generic-password -a $USER -s uranus-openai-key -w >/dev/null 2>&1 && echo 'keychain: uranus-openai-key present' || echo 'keychain: not set (run npm run secrets:set)'",
+    "secrets:delete": "security delete-generic-password -a $USER -s uranus-openai-key",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.4",
+    "idb-keyval": "^6.2.1",
+    "lucide-react": "^0.454.0",
+    "next": "14.2.15",
+    "openai": "^4.73.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "ws": "^8.18.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.10",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "@types/ws": "^8.5.12",
+    "autoprefixer": "^10.4.19",
+    "concurrently": "^9.0.1",
+    "postcss": "^8.4.39",
+    "tailwindcss": "^3.4.6",
+    "tsx": "^4.19.1",
+    "typescript": "^5.5.3"
+  }
+}
