@@ -382,6 +382,7 @@ All share the same contract: `SettleInput` in, `SettleResult` out. Uranus's secu
 - [ ] **Multi-Signature Quorum Policies:** Requiring *M*-of-*N* human signers for high-value organizational treasury mutations above configurable risk thresholds.
 - [ ] **Dynamic Policy Engine:** Zero-knowledge policy validation and real-time smart contract rule syncing across EVM and Solana chains.
 - [ ] **TTL & Auto-Abort Handlers:** Configurable time-to-live expiration policies for unattended agent step-up promises.
+- [ ] **First-Party Production Payment Adapters:** Drop-in, in-tree modules for Stripe, Wise / Modern Treasury / Column, EVM chains, and Solana - so operators don't have to hand-write the settlement adapter documented in the Production Adapters section.
 
 ---
 
