@@ -64,3 +64,25 @@ body {
 .soft-pulse {
   animation: soft-pulse 2.4s ease-in-out infinite;
 }
+
+/* Radar sweep: expanding zinc rings that fade as they grow.
+   Stagger delays create a continuous ping cadence. */
+@keyframes radar-ping {
+  0% {
+    transform: scale(0.25);
+    opacity: 0.55;
+  }
+  70% {
+    opacity: 0.12;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 0;
+  }
+}
+
+.radar-ping {
+  animation: radar-ping 3.4s cubic-bezier(0.2, 0.7, 0.4, 1) infinite;
+  transform-origin: center center;
+  will-change: transform, opacity;
+}

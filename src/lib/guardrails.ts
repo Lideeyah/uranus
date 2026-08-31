@@ -147,10 +147,13 @@ export function evaluate(
 }
 
 export function isHardBlock(assessment: RiskAssessment): boolean {
+  // Automated hard blocks — never routed to the operator; no chain entry.
+  // Denylisted recipients are surfaced on the intercept card (with the
+  // Authorize button disabled) so the operator can explicitly reject and
+  // the rejection is recorded on the audit chain.
   return (
     assessment.violation_codes.includes('VELOCITY_LIMIT_EXCEEDED') ||
-    assessment.violation_codes.includes('NEGATIVE_AMOUNT') ||
-    assessment.violation_codes.includes('RECIPIENT_DENYLISTED')
+    assessment.violation_codes.includes('NEGATIVE_AMOUNT')
   );
 }
 

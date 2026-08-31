@@ -222,27 +222,18 @@ export function WebMCPProvider({ children }: { children: React.ReactNode }) {
 
   const reject = useCallback(
     async (requestId: string, reason = 'rejected by operator') => {
+      // Chain write is centralised in handleResolved; here we only fire the
+      // WS resolve so the server tears down the pending promise and echoes
+      // a `resolved` event back.
       socketRef.current?.send({
         type: 'resolve',
         request_id: requestId,
         decision: 'REJECTED',
         reason,
       });
-      const req = pendingRef.current.find((p) => p.id === requestId);
-      if (req) {
-        const id = identityRef.current;
-        await appendChain({
-          request_id: requestId,
-          tool_name: req.tool_name,
-          payload_hash: req.payload_hash,
-          status: 'REJECTED',
-          signature: '(unsigned)',
-          operator_fingerprint: id?.fingerprint ?? 'anonymous',
-        });
-      }
       addLog('warn', `REJECTED ${requestId}`, { reason });
     },
-    [addLog, appendChain],
+    [addLog],
   );
 
   const handleIncomingPending = useCallback(
@@ -329,23 +320,29 @@ export function WebMCPProvider({ children }: { children: React.ReactNode }) {
       const id = identityRef.current;
       const status = result.status;
       const signature = result.signature ?? '(none)';
-      const payload_hash = original?.payload_hash ?? '0x0';
-      const tool_name = original?.tool_name ?? 'request_guarded_settlement';
+      // Prefer the server-supplied hash (present for AUTO_APPROVED / AUTHORIZED)
+      // since auto-approved requests never enter the browser's pending queue,
+      // making the `original` fallback unreliable for those.
+      const payload_hash = result.payload_hash ?? original?.payload_hash ?? '0x0';
+      const tool_name = result.tool_name ?? original?.tool_name ?? 'request_guarded_settlement';
 
-      if (status === 'AUTO_APPROVED' || status === 'AUTHORIZED' || status === 'REJECTED' || status === 'BLOCKED') {
-        // AUTO_APPROVED and AUTHORIZED both had a signature — record it.
-        if (status === 'AUTO_APPROVED' || status === 'AUTHORIZED' || (original && status === 'REJECTED')) {
-          if (status === 'AUTO_APPROVED' || status === 'AUTHORIZED') {
-            await appendChain({
-              request_id: requestId,
-              tool_name,
-              payload_hash,
-              status,
-              signature,
-              operator_fingerprint: id?.fingerprint ?? 'anonymous',
-            });
-          }
-        }
+      // Single chain-write path: append for every human-decided outcome.
+      // BLOCKED calls (velocity / negative amount) are automated safety
+      // rejections without operator input and are intentionally omitted
+      // from the audit chain per the script's semantics.
+      if (status === 'AUTO_APPROVED' || status === 'AUTHORIZED' || status === 'REJECTED') {
+        const chainSig =
+          status === 'REJECTED' && signature === '(none)'
+            ? '(rejected-by-operator)'
+            : signature;
+        await appendChain({
+          request_id: requestId,
+          tool_name,
+          payload_hash,
+          status,
+          signature: chainSig,
+          operator_fingerprint: id?.fingerprint ?? 'anonymous',
+        });
       }
 
       if (result.success) {

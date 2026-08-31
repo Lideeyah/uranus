@@ -2,24 +2,16 @@
 /**
  * Uranus MCP stdio bridge.
  *
- * Runs as a standalone Node process launched by an MCP client
- * (e.g. Claude Desktop). Speaks the Model Context Protocol on
+ * Runs as a standalone Node process launched by any MCP-compliant
+ * agent harness (OpenAI Agents SDK with stdio transport, custom
+ * Python/Node runners, etc). Speaks the Model Context Protocol on
  * stdio, forwards every tool call over HTTP to the local Uranus
  * bridge server, and blocks until the browser operator resolves
  * or rejects the call.
  *
- * Claude Desktop config example (~/Library/Application Support/
- *   Claude/claude_desktop_config.json):
- *
- *   {
- *     "mcpServers": {
- *       "uranus": {
- *         "command": "npx",
- *         "args": ["tsx", "<abs-path>/src/server/mcp-bridge.ts"],
- *         "env": { "URANUS_URL": "http://localhost:3223" }
- *       }
- *     }
- *   }
+ * Launch example:
+ *   URANUS_URL=http://localhost:3223 \
+ *     npx tsx <abs-path>/src/server/mcp-bridge.ts
  */
 
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';

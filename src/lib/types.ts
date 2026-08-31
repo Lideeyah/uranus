@@ -31,6 +31,11 @@ export interface ToolExecutionResult {
   ledger_balance?: number;
   signature?: string;
   operator_pubkey_jwk?: JsonWebKey;
+  // Included by the bridge in the `resolved` event so the browser can
+  // record accurate chain blocks even for auto-approved requests that
+  // never entered its local pending queue.
+  payload_hash?: string;
+  tool_name?: string;
 }
 
 export interface SignedAuthorization {

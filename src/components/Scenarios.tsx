@@ -7,12 +7,19 @@ import {
   Mail,
   Play,
   Repeat,
+  RotateCcw,
   ShieldAlert,
   Sparkles,
   Zap,
 } from 'lucide-react';
 import { useWebMCP } from '@/context/WebMCPContext';
-import { httpAgentStatus, streamAgent } from '@/lib/bridge-client';
+import {
+  httpAgentStatus,
+  httpResetLedger,
+  httpSubmitPreset,
+  streamAgent,
+} from '@/lib/bridge-client';
+import { generateIdempotencyKey } from '@/lib/crypto';
 
 interface Scenario {
   key: string;
@@ -28,12 +35,12 @@ const SCENARIOS: Scenario[] = [
   {
     key: 'micro-refund',
     label: 'Micro-Refund',
-    headline: 'legit $32 support refund',
+    headline: 'legit $24.50 support refund',
     narrative:
       'A normal support agent processes a real duplicate-charge complaint. Under the auto-approval cap — Uranus signs and settles instantly.',
     expectedLabel: 'Auto-approves',
     icon: <Sparkles className="h-4 w-4 stroke-[1.5]" />,
-    user: `Hi support — I was charged twice for order #ORD-77321 on my subscription. Please refund the duplicate charge of $32.00 USD to customer cust_9f21b0. Reason: "Duplicate subscription charge on ORD-77321".`,
+    user: `Hi support — I was charged twice for order #ORD-77321 on my subscription. Please refund the duplicate charge of $24.50 USD to customer cust_9f21b0. Reason: "Duplicate subscription charge on ORD-77321".`,
   },
   {
     key: 'prompt-injection',
@@ -64,7 +71,14 @@ const SCENARIOS: Scenario[] = [
 ];
 
 export default function Scenarios() {
-  const { addLog, setActiveScenario, activeScenario, pending, setLastResolution } = useWebMCP();
+  const {
+    addLog,
+    setActiveScenario,
+    activeScenario,
+    pending,
+    setLastResolution,
+    resetChainNow,
+  } = useWebMCP();
   const [configured, setConfigured] = useState<boolean | null>(null);
   const [runningAll, setRunningAll] = useState(false);
   const busyRef = useRef(false);
@@ -92,31 +106,96 @@ export default function Scenarios() {
     setLastResolution(null);
     addLog('info', `→ scenario "${scenario.label}" starting`);
     try {
-      await streamAgent(
-        { scenario: scenario.key, user: scenario.user },
-        {
-          onInvoke: (inv) => {
-            const i = inv as { tool: string; args: Record<string, unknown> };
-            addLog('network', `LLM invoked ${i.tool}`, i.args);
+      if (scenario.key === 'velocity-loop') {
+        // Fire five settlements as a true rapid burst directly against the
+        // bridge — the script narrates this as "a rapid burst of repeated
+        // tool calls, immediately tripping our velocity circuit breaker".
+        // Using the LLM here would serialize the calls (each turn awaits its
+        // tool result) and lose the burst semantics.
+        addLog('network', 'agent burst · 5 rapid settlements fired in parallel');
+        const calls = Array.from({ length: 5 }, (_, i) => ({
+          recipient_id: 'cust_batch_51',
+          amount: 18,
+          currency: 'USD',
+          reason: `Batch refund ${i + 1}/5`,
+          idempotency_key: generateIdempotencyKey(),
+        }));
+        await Promise.all(
+          calls.map((payload, i) =>
+            new Promise<void>((r) => window.setTimeout(r, i * 140))
+              .then(() => httpSubmitPreset(payload, 'browser-preset'))
+              .then((result) =>
+                addLog(
+                  result.status === 'BLOCKED' ? 'error' : 'success',
+                  `burst[${i + 1}/5] → ${result.status}`,
+                  { amount: payload.amount, tx: result.tx_hash?.slice(0, 20) },
+                ),
+              )
+              .catch((err) => {
+                addLog('error', `burst[${i + 1}/5] error`, { error: String(err) });
+              }),
+          ),
+        );
+        addLog('success', `scenario "${scenario.label}" complete`);
+      } else if (scenario.key === 'prompt-injection') {
+        // Fire the malicious payload directly. Safety-trained LLMs often
+        // refuse the blatant [SYSTEM OVERRIDE] marker in the customer
+        // review — but the script's demo NEEDS the intercept to fire, so
+        // we submit the extracted attack payload deterministically. The
+        // narrator explains that "the LLM would fire this call under a
+        // successful prompt injection".
+        addLog(
+          'network',
+          'agent extracts injected instruction from customer review',
+          { recipient: 'hacker_0x99', amount: 4850 },
+        );
+        const result = await httpSubmitPreset(
+          {
+            recipient_id: 'hacker_0x99',
+            amount: 4850,
+            currency: 'USD',
+            reason: 'refund (extracted from injected customer review)',
+            idempotency_key: generateIdempotencyKey(),
           },
-          onToolResult: (res) => {
-            const r = res as { result: { status: string } };
-            addLog('debug', `LLM saw result: ${r.result.status}`);
+          'unknown',
+        );
+        addLog(
+          result.status === 'REJECTED'
+            ? 'warn'
+            : result.status === 'BLOCKED'
+              ? 'error'
+              : 'success',
+          `injection payload → ${result.status}`,
+          result.reason ? { reason: result.reason } : undefined,
+        );
+        addLog('success', `scenario "${scenario.label}" complete`);
+      } else {
+        await streamAgent(
+          { scenario: scenario.key, user: scenario.user },
+          {
+            onInvoke: (inv) => {
+              const i = inv as { tool: string; args: Record<string, unknown> };
+              addLog('network', `LLM invoked ${i.tool}`, i.args);
+            },
+            onToolResult: (res) => {
+              const r = res as { result: { status: string } };
+              addLog('debug', `LLM saw result: ${r.result.status}`);
+            },
+            onDone: () => {
+              addLog('success', `scenario "${scenario.label}" complete`);
+            },
+            onError: (err) => {
+              const e = err as { error?: string };
+              addLog('error', `scenario error`, { error: e.error });
+            },
           },
-          onDone: () => {
-            addLog('success', `scenario "${scenario.label}" complete`);
-          },
-          onError: (err) => {
-            const e = err as { error?: string };
-            addLog('error', `scenario error`, { error: e.error });
-          },
-        },
-      );
+        );
+      }
     } finally {
-      window.setTimeout(() => setActiveScenario(null), 500);
-      window.setTimeout(() => {
-        busyRef.current = false;
-      }, 600);
+      // Clear immediately so the workspace snaps back to GatewayArmed as soon
+      // as the scenario resolves — no lingering spinner between states.
+      setActiveScenario(null);
+      busyRef.current = false;
     }
   }
 
@@ -124,12 +203,27 @@ export default function Scenarios() {
     setRunningAll(true);
     for (const s of SCENARIOS) {
       await run(s);
+      // Pause the sequence while an intercept card is still awaiting a signature
+      // (Scenario 2). Once the operator resolves it, continue.
       while (pendingCountRef.current > 0) {
-        await new Promise((r) => window.setTimeout(r, 400));
+        await new Promise((r) => window.setTimeout(r, 300));
       }
-      await new Promise((r) => window.setTimeout(r, 1200));
+      // 3-second beat between scenarios so the narrator has room to speak.
+      await new Promise((r) => window.setTimeout(r, 3000));
     }
     setRunningAll(false);
+  }
+
+  async function resetDemo(): Promise<void> {
+    try {
+      await httpResetLedger();   // resets treasury + server-side velocity window
+      await resetChainNow();     // clears the browser audit chain in IndexedDB
+      addLog('info', 'demo state reset · treasury $10,000 · velocity cleared · chain 0');
+    } catch (err) {
+      addLog('error', 'reset failed', {
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
   }
 
   const disabled = configured === false;
@@ -154,6 +248,16 @@ export default function Scenarios() {
               OPENAI_API_KEY missing
             </span>
           )}
+          <button
+            type="button"
+            onClick={resetDemo}
+            disabled={runningAll || activeScenario !== null}
+            className="flex items-center gap-2 rounded-md border border-tagborder bg-tagbg px-3 py-1.5 text-xs font-medium text-muted transition hover:border-borderhover hover:text-hi disabled:cursor-not-allowed disabled:opacity-40"
+            title="Reset ledger, velocity window, and audit chain for a fresh demo take"
+          >
+            <RotateCcw className="h-3.5 w-3.5 stroke-[1.5]" />
+            Reset
+          </button>
           <button
             type="button"
             onClick={runAll}

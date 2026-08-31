@@ -100,10 +100,30 @@ function PolicyStat({
 function Radars() {
   return (
     <div className="relative flex h-32 w-32 items-center justify-center">
-      <div className="absolute inset-0 rounded-full border border-tagborder" />
-      <div className="absolute inset-3 rounded-full border border-tagborder/70" />
-      <div className="absolute inset-6 rounded-full border border-tagborder/50" />
-      <div className="absolute inset-10 rounded-full border border-tagborder/30" />
+      {/* Static structural rings — provide the reticle */}
+      <div className="absolute inset-0 rounded-full border border-tagborder/70" />
+      <div className="absolute inset-3 rounded-full border border-tagborder/50" />
+      <div className="absolute inset-6 rounded-full border border-tagborder/30" />
+      <div className="absolute inset-10 rounded-full border border-tagborder/20" />
+
+      {/* Animated pings — three staggered rings expanding outward */}
+      <span
+        className="radar-ping absolute inset-0 rounded-full border border-hi/55"
+        style={{ animationDelay: '0s' }}
+        aria-hidden
+      />
+      <span
+        className="radar-ping absolute inset-0 rounded-full border border-hi/40"
+        style={{ animationDelay: '1.13s' }}
+        aria-hidden
+      />
+      <span
+        className="radar-ping absolute inset-0 rounded-full border border-hi/30"
+        style={{ animationDelay: '2.27s' }}
+        aria-hidden
+      />
+
+      {/* Center dish */}
       <div className="relative flex h-8 w-8 items-center justify-center rounded-full border border-border bg-base">
         <Radar className="h-4 w-4 stroke-[1.5] text-muted" />
       </div>

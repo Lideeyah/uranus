@@ -28,6 +28,11 @@ async function blockHash(input: Omit<AuditBlock, 'current_hash'>): Promise<strin
   return '0x' + (await sha256Hex(canonical));
 }
 
+// Serialize all writes through a single promise chain so concurrent
+// appends (e.g. reject() racing with an incoming resolve message) can't
+// clobber each other's chain state via interleaved IDB reads.
+let writeQueue: Promise<unknown> = Promise.resolve();
+
 export async function appendBlock(entry: {
   request_id: string;
   tool_name: string;
@@ -36,24 +41,29 @@ export async function appendBlock(entry: {
   operator_fingerprint: string;
   signature: string;
 }): Promise<AuditBlock> {
-  const chain = await loadChain();
-  const previous_hash = chain.length > 0 ? chain[chain.length - 1].current_hash : GENESIS_HASH;
-  const draft = {
-    index: chain.length,
-    timestamp: Date.now(),
-    request_id: entry.request_id,
-    tool_name: entry.tool_name,
-    payload_hash: entry.payload_hash,
-    status: entry.status,
-    operator_fingerprint: entry.operator_fingerprint,
-    signature: entry.signature,
-    previous_hash,
-  };
-  const current_hash = await blockHash(draft);
-  const block: AuditBlock = { ...draft, current_hash };
-  chain.push(block);
-  await saveChain(chain);
-  return block;
+  const task = writeQueue.then(async () => {
+    const chain = await loadChain();
+    const previous_hash =
+      chain.length > 0 ? chain[chain.length - 1].current_hash : GENESIS_HASH;
+    const draft = {
+      index: chain.length,
+      timestamp: Date.now(),
+      request_id: entry.request_id,
+      tool_name: entry.tool_name,
+      payload_hash: entry.payload_hash,
+      status: entry.status,
+      operator_fingerprint: entry.operator_fingerprint,
+      signature: entry.signature,
+      previous_hash,
+    };
+    const current_hash = await blockHash(draft);
+    const block: AuditBlock = { ...draft, current_hash };
+    chain.push(block);
+    await saveChain(chain);
+    return block;
+  });
+  writeQueue = task.catch(() => undefined);
+  return task;
 }
 
 export async function readChain(): Promise<AuditBlock[]> {

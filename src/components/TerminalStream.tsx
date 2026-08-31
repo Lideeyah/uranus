@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertCircle,
   ChevronRight,
@@ -82,13 +82,34 @@ function detectStatus(msg: string): string | undefined {
 export default function TerminalStream() {
   const { logs, clearLogs } = useWebMCP();
   const scroller = useRef<HTMLDivElement>(null);
+  const [revealed, setRevealed] = useState(0);
+
+  // Paced reveal: dequeue one log at a time so the stream reads like a
+  // live console. If a burst pushes the backlog higher, tick faster
+  // so we never stall visibly behind reality.
+  useEffect(() => {
+    if (revealed >= logs.length) return;
+    const backlog = logs.length - revealed;
+    const delay =
+      backlog > 25 ? 30 : backlog > 12 ? 70 : backlog > 5 ? 110 : 160;
+    const id = window.setTimeout(
+      () => setRevealed((c) => Math.min(c + 1, logs.length)),
+      delay,
+    );
+    return () => window.clearTimeout(id);
+  }, [logs.length, revealed]);
+
+  // Reset when logs are cleared or shrunk (e.g. Clear button).
+  useEffect(() => {
+    if (logs.length < revealed) setRevealed(logs.length);
+  }, [logs.length, revealed]);
 
   useEffect(() => {
     if (!scroller.current) return;
     scroller.current.scrollTop = scroller.current.scrollHeight;
-  }, [logs]);
+  }, [revealed]);
 
-  const rendered = useMemo(() => logs.slice(-200), [logs]);
+  const rendered = useMemo(() => logs.slice(0, revealed).slice(-200), [logs, revealed]);
 
   return (
     <section className="flex h-full flex-col overflow-hidden rounded-xl border border-border bg-surface">

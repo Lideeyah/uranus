@@ -19,7 +19,13 @@ import type {
   SignedAuthorization,
   ToolExecutionResult,
 } from '../lib/types';
-import { evaluate, humanizeViolation, isHardBlock } from '../lib/guardrails';
+import {
+  evaluate,
+  humanizeViolation,
+  isHardBlock,
+  recordExecution,
+  resetVelocityWindow,
+} from '../lib/guardrails';
 
 const PORT = Number(process.env.URANUS_BRIDGE_PORT ?? 3223);
 const REQUEST_TIMEOUT_MS = Number(process.env.URANUS_TIMEOUT_MS ?? 120_000);
@@ -53,8 +59,12 @@ async function route(req: IncomingMessage, res: ServerResponse, url: URL): Promi
   if (pathname === '/ledger' && req.method === 'GET') return json(res, 200, await readLedger());
   if (pathname === '/ledger/reset' && req.method === 'POST') {
     const next = await resetLedger();
+    // Ledger reset is the "prepare fresh demo" action — also clear the
+    // velocity window so the next simulation doesn't inherit stale
+    // executions from the previous run.
+    resetVelocityWindow();
     hub.publish({ type: 'ledger', ledger: next });
-    log('warn', 'ledger reset via HTTP');
+    log('warn', 'ledger + velocity window reset via HTTP');
     return json(res, 200, next);
   }
 
@@ -172,21 +182,27 @@ async function resolveIncoming(msg: Extract<BridgeClientMessage, { type: 'resolv
     if (msg.violation_codes) meta.violations = msg.violation_codes;
     if (msg.reason) meta.reason = msg.reason;
     log('error', `BLOCKED ${requestId}`, meta);
+    const pending = hub.listPending().find((p) => p.id === requestId);
     hub.resolve(requestId, {
       success: false,
       status: 'BLOCKED',
       reason: msg.reason ?? 'blocked',
       violation_codes: msg.violation_codes,
+      payload_hash: pending?.payload_hash,
+      tool_name: pending?.tool_name,
     });
     return;
   }
 
   if (msg.decision === 'REJECTED') {
     log('warn', `REJECTED ${requestId} by operator`, { reason: msg.reason });
+    const pending = hub.listPending().find((p) => p.id === requestId);
     hub.resolve(requestId, {
       success: false,
       status: 'REJECTED',
       reason: msg.reason ?? 'rejected by operator',
+      payload_hash: pending?.payload_hash,
+      tool_name: pending?.tool_name,
     });
     return;
   }
@@ -262,6 +278,10 @@ async function resolveIncoming(msg: Extract<BridgeClientMessage, { type: 'resolv
     ledger_balance: nextLedger.balance,
     signature: signed.signature,
     operator_pubkey_jwk: signed.operator_pubkey,
+    // Forward the request identity so the browser can chain accurate hashes
+    // for auto-approves that never entered its pending queue.
+    payload_hash: pending.payload_hash,
+    tool_name: pending.tool_name,
   });
 }
 
@@ -327,6 +347,9 @@ export async function submitToolCall(input: {
 }): Promise<ToolExecutionResult> {
   const policy = await readPolicy();
   const assessment = evaluate(input.payload, { policy });
+  // Record every invocation attempt (approved, blocked, or rejected) so the
+  // velocity circuit-breaker measures true request load, not just settlements.
+  recordExecution();
   const payload_hash = await sha256Prefix(canonicalize(input.payload as unknown as Record<string, unknown>), 40);
   const requestId = 'req_' + Math.random().toString(36).slice(2, 10);
 
@@ -397,7 +420,7 @@ async function handleAgentStream(req: IncomingMessage, res: ServerResponse): Pro
 
   const system =
     body.system ??
-    'You are an autonomous customer-support agent for a small SaaS company. You must reply to the user message. If the message asks for a refund or settlement, call the request_guarded_settlement tool. Use the currency USD unless otherwise specified. Generate a unique idempotency_key of the form idm_<random8hex>. Do not ask the user for confirmation — just call the tool. Always emit a currency argument.';
+    'You are an autonomous customer-support agent for a small SaaS company. If the message asks for a refund or settlement, call the request_guarded_settlement tool immediately. Use USD unless otherwise specified. Generate a unique idempotency_key of the form idm_<random8hex>. Do not ask the user for confirmation. Do not narrate what you are about to do. When a tool call returns, do not summarize — just reply with a single short sentence acknowledging the result (or stop if there is nothing more to do). If the user asks for multiple settlements in a batch, issue them as fast as possible with separate tool calls.';
 
   try {
     await runAgent({
