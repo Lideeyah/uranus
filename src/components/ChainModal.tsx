@@ -60,11 +60,11 @@ export default function ChainModal({ open, onClose, chain, verification }: Props
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/60 p-3 backdrop-blur-sm sm:items-center sm:p-6"
       onClick={onClose}
     >
       <div
-        className="fade-in-up flex max-h-[85vh] w-[min(920px,92vw)] flex-col overflow-hidden rounded-xl border border-border bg-surface shadow-panel"
+        className="fade-in-up flex max-h-[92vh] w-full max-w-[920px] flex-col overflow-hidden rounded-xl border border-border bg-surface shadow-panel sm:max-h-[85vh]"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between border-b border-border px-5 py-3">

@@ -229,8 +229,8 @@ export default function Scenarios() {
   const disabled = configured === false;
 
   return (
-    <section className="mx-auto w-full max-w-[1600px] px-8 pt-6">
-      <div className="mb-4 flex flex-wrap items-end justify-between gap-4">
+    <section className="mx-auto w-full max-w-[1600px] px-4 pt-4 sm:px-6 sm:pt-6 md:px-8">
+      <div className="mb-4 flex flex-col gap-3 md:flex-row md:flex-wrap md:items-end md:justify-between md:gap-4">
         <div>
           <h2 className="text-base font-semibold tracking-tight text-hi">
             Run an autonomous agent through Uranus
@@ -241,9 +241,9 @@ export default function Scenarios() {
             live stream on the left and the workspace on the right.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {configured === false && (
-            <span className="flex items-center gap-1 rounded-md border border-tagborder bg-tagbg px-2.5 py-1.5 text-xs text-muted">
+            <span className="flex w-full items-center gap-1 rounded-md border border-tagborder bg-tagbg px-2.5 py-1.5 text-xs text-muted sm:w-auto">
               <ShieldAlert className="h-3.5 w-3.5 stroke-[1.5]" />
               OPENAI_API_KEY missing
             </span>
@@ -252,7 +252,7 @@ export default function Scenarios() {
             type="button"
             onClick={resetDemo}
             disabled={runningAll || activeScenario !== null}
-            className="flex items-center gap-2 rounded-md border border-tagborder bg-tagbg px-3 py-1.5 text-xs font-medium text-muted transition hover:border-borderhover hover:text-hi disabled:cursor-not-allowed disabled:opacity-40"
+            className="flex min-h-[40px] flex-1 items-center justify-center gap-2 rounded-md border border-tagborder bg-tagbg px-3 py-1.5 text-xs font-medium text-muted transition hover:border-borderhover hover:text-hi disabled:cursor-not-allowed disabled:opacity-40 sm:flex-initial"
             title="Reset ledger, velocity window, and audit chain for a fresh demo take"
           >
             <RotateCcw className="h-3.5 w-3.5 stroke-[1.5]" />
@@ -262,14 +262,15 @@ export default function Scenarios() {
             type="button"
             onClick={runAll}
             disabled={disabled || runningAll || activeScenario !== null}
-            className="flex items-center gap-2 rounded-md bg-hi px-3.5 py-1.5 text-xs font-semibold text-base transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-40"
+            className="flex min-h-[40px] flex-1 items-center justify-center gap-2 rounded-md bg-hi px-3.5 py-1.5 text-xs font-semibold text-base transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-40 sm:flex-initial"
           >
             {runningAll ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin stroke-[1.5]" />
             ) : (
               <Zap className="h-3.5 w-3.5 stroke-[1.5]" />
             )}
-            Run Live Security Simulation
+            <span className="hidden sm:inline">Run Live Security Simulation</span>
+            <span className="sm:hidden">Run Simulation</span>
           </button>
         </div>
       </div>

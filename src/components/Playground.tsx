@@ -69,8 +69,8 @@ export default function Playground() {
   const awaitingOperator = sending && pending.length > 0;
 
   return (
-    <section className="mx-auto w-full max-w-[1600px] px-8 pt-4">
-      <div className="rounded-lg border border-border bg-surface p-4">
+    <section className="mx-auto w-full max-w-[1600px] px-4 pt-4 sm:px-6 md:px-8">
+      <div className="rounded-lg border border-border bg-surface p-3 sm:p-4">
         <div className="mb-3">
           <h3 className="text-sm font-semibold text-hi">Send a custom settlement</h3>
           <p className="mt-0.5 text-xs leading-relaxed text-muted">
@@ -81,7 +81,7 @@ export default function Playground() {
         </div>
         <form
           onSubmit={submit}
-          className="grid grid-cols-1 items-end gap-3 md:grid-cols-[1.4fr_0.7fr_0.6fr_1.5fr_auto]"
+          className="grid grid-cols-1 items-end gap-3 sm:grid-cols-2 md:grid-cols-[1.4fr_0.7fr_0.6fr_1.5fr_auto]"
         >
           <Field label="Recipient">
             <input
@@ -128,7 +128,7 @@ export default function Playground() {
           <button
             type="submit"
             disabled={!canSubmit}
-            className="flex h-[38px] items-center justify-center gap-2 rounded-md bg-hi px-4 text-xs font-semibold text-base transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-40"
+            className="flex h-[40px] w-full items-center justify-center gap-2 rounded-md bg-hi px-4 text-xs font-semibold text-base transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-40 sm:col-span-2 md:col-span-1 md:w-auto"
           >
             {sending ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin stroke-[1.5]" />

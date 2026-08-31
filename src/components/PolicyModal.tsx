@@ -27,11 +27,11 @@ export default function PolicyModal({ open, onClose }: Props) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center bg-black/60 p-8 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/60 p-3 backdrop-blur-sm sm:p-6 md:p-8"
       onClick={onClose}
     >
       <div
-        className="fade-in-up flex max-h-[85vh] w-[min(560px,92vw)] flex-col overflow-hidden rounded-xl border border-border bg-surface shadow-panel"
+        className="fade-in-up flex max-h-[92vh] w-full max-w-[560px] flex-col overflow-hidden rounded-xl border border-border bg-surface shadow-panel sm:max-h-[85vh]"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between border-b border-border px-5 py-3">

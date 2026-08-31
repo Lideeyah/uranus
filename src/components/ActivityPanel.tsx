@@ -82,7 +82,7 @@ function InterceptCard({ req }: { req: PendingToolRequest }) {
       </div>
 
       <div className="uranus-scroll max-h-[520px] overflow-y-auto">
-        <div className="grid grid-cols-2 gap-3 border-b border-border px-5 py-5">
+        <div className="grid grid-cols-1 gap-3 border-b border-border px-4 py-4 sm:grid-cols-2 sm:px-5 sm:py-5">
           <Field
             label="Recipient"
             icon={<UserRound className="h-4 w-4 stroke-[1.5]" />}
@@ -141,7 +141,7 @@ function InterceptCard({ req }: { req: PendingToolRequest }) {
         </div>
       </div>
 
-      <div className="flex items-center gap-3 border-t border-border px-5 py-4">
+      <div className="flex flex-col gap-2 border-t border-border px-4 py-4 sm:flex-row sm:items-center sm:gap-3 sm:px-5">
         <button
           type="button"
           onClick={() => authorize(req.id)}

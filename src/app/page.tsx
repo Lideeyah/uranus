@@ -12,18 +12,18 @@ export default function Page() {
       <Scenarios />
       <Playground />
 
-      <section className="mx-auto grid w-full max-w-[1600px] flex-1 items-start gap-4 px-8 py-4 lg:grid-cols-2">
-        <div className="flex min-h-[560px] flex-col">
+      <section className="mx-auto grid w-full max-w-[1600px] flex-1 items-start gap-4 px-4 py-4 sm:px-6 md:px-8 lg:grid-cols-2">
+        <div className="flex min-h-[420px] flex-col md:min-h-[560px]">
           <TerminalStream />
         </div>
-        <div className="flex flex-col gap-4">
+        <div className="flex min-h-[420px] flex-col gap-4 md:min-h-0">
           <ActivityPanel />
         </div>
       </section>
 
       <ChainRibbon />
 
-      <footer className="border-t border-border bg-surface/60 px-8 py-2">
+      <footer className="border-t border-border bg-surface/60 px-4 py-2 sm:px-6 md:px-8">
         <div className="mx-auto flex max-w-[1600px] flex-wrap items-center justify-between gap-2 font-mono text-[10px] uppercase tracking-[0.16em] text-meta">
           <span>uranus · webmcp gateway · v0.1.0 · P-256 signed</span>
           <span>openai webmcp challenge</span>

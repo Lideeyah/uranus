@@ -13,17 +13,17 @@ export default function ChainRibbon() {
 
   return (
     <>
-      <section className="mx-auto w-full max-w-[1600px] px-8 py-4">
+      <section className="mx-auto w-full max-w-[1600px] px-4 py-4 sm:px-6 md:px-8">
         <div className="flex flex-col overflow-hidden rounded-xl border border-border bg-surface">
-          <div className="flex items-center justify-between border-b border-border px-4 py-2.5">
-            <div className="flex items-center gap-2 text-hi">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-3 py-2.5 sm:px-4">
+            <div className="flex flex-wrap items-center gap-2 text-hi">
               <LinkIcon className="h-4 w-4 stroke-[1.5] text-muted" />
               <span className="text-sm font-semibold tracking-tight">Cryptographic Audit Chain</span>
-              <span className="ml-2 font-mono text-[10px] uppercase tracking-[0.18em] text-meta">
+              <span className="hidden font-mono text-[10px] uppercase tracking-[0.18em] text-meta md:ml-2 md:inline">
                 SHA-256 hash-chained · signed with ECDSA P-256
               </span>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <span className="flex items-center gap-1.5 rounded-md border border-tagborder bg-tagbg px-2 py-1 font-mono text-[10px] uppercase tracking-[0.14em] text-tagtext">
                 {valid && <span className="soft-pulse h-1.5 w-1.5 rounded-full bg-emerald" />}
                 {valid ? `chain verified · ${chain.length} blocks` : `chain broken`}
@@ -78,7 +78,7 @@ export default function ChainRibbon() {
                     <button
                       type="button"
                       onClick={() => setExpanded(true)}
-                      className="flex min-w-[220px] flex-col gap-1 rounded-md border border-tagborder bg-base px-3 py-2 text-left font-mono text-[11px] transition hover:border-borderhover"
+                      className="flex min-w-[180px] shrink-0 flex-col gap-1 rounded-md border border-tagborder bg-base px-3 py-2 text-left font-mono text-[11px] transition hover:border-borderhover sm:min-w-[220px]"
                     >
                       <div className="flex items-center justify-between">
                         <span className="text-meta">#{b.index}</span>
