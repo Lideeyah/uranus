@@ -275,6 +275,16 @@ Click **Reset** to clear the local chain (client-scoped, in IndexedDB). Server-s
 
 ---
 
+## 🗺️ Future Roadmap
+
+- [ ] **Out-of-Band Human Approval Channels:** Push notifications and asynchronous Slack/Telegram webhook approval bots for background AI agent workflows.
+- [ ] **WebAuthn & Passkeys:** Hardware biometric sign-off (Touch ID / Face ID / YubiKey) replacing ephemeral in-memory ECDSA keys.
+- [ ] **Multi-Signature Quorum Policies:** Requiring *M*-of-*N* human signers for high-value organizational treasury mutations above configurable risk thresholds.
+- [ ] **Dynamic Policy Engine:** Zero-knowledge policy validation and real-time smart contract rule syncing across EVM and Solana chains.
+- [ ] **TTL & Auto-Abort Handlers:** Configurable time-to-live expiration policies for unattended agent step-up promises.
+
+---
+
 ## 🛡 License
 
 MIT License. Built for the OpenAI WebMCP Challenge (2026).
