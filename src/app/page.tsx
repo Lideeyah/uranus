@@ -1,6 +1,7 @@
 import ActivityPanel from '@/components/ActivityPanel';
 import ChainRibbon from '@/components/ChainRibbon';
 import Header from '@/components/Header';
+import Playground from '@/components/Playground';
 import PolicyEditor from '@/components/PolicyEditor';
 import Scenarios from '@/components/Scenarios';
 import TerminalStream from '@/components/TerminalStream';
@@ -10,6 +11,7 @@ export default function Page() {
     <main className="flex min-h-screen flex-col bg-base text-hi">
       <Header />
       <Scenarios />
+      <Playground />
 
       <section className="mx-auto grid w-full max-w-[1600px] flex-1 items-start gap-4 px-8 py-4 lg:grid-cols-2">
         <div className="flex min-h-[560px] flex-col">
