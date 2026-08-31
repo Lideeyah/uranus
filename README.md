@@ -69,18 +69,37 @@ As AI agents transition from read-only generation to browser-native execution vi
 
 ## 🔑 Core Technical Pillars
 
-* **1. Browser-Native WebMCP & Real-Time Gateway (`src/server/`):**
-  Registers structured tools (`request_guarded_settlement`, `simulate_preflight`) directly onto `navigator.modelContext` and exposes stdio / SSE / WebSocket endpoints via `@modelcontextprotocol/sdk`. External agent requests bridge across WebSockets, holding execution promises open until client-side resolution.
-* **2. Stateful Treasury Backend (`src/server/ledger.ts`):**
-  An atomic, persistent ledger initialized with a $10,000.00 USD pool. Auto-approvals and human authorizations deduct from the balance; rejected attacks preserve the balance and enforce strict overdraft protection.
-* **3. Web Crypto ECDSA (P-256) Signatures (`src/lib/crypto.ts`):**
-  Generates non-extractable keys using native `window.crypto.subtle` stored in IndexedDB. Every manual authorization cryptographically signs: `SHA-256(payload_hash + amount + timestamp + operator_fingerprint)`.
-* **4. Immutable Hash-Chained Audit Trail (`src/lib/audit-chain.ts`):**
-  Every operation (auto-cleared, authorized, or blocked) links to its predecessor via SHA-256 hashes, verified live on-screen with the integrated chain inspector.
-* **5. Hot-Reconfigurable Dynamic Policy DSL (`src/components/PolicyEditor.tsx`):**
-  Real-time sliders for auto-approval limits, velocity burst thresholds, and recipient deny-lists that take effect immediately without requiring service restarts.
-* **6. Adversarial LLM Test Runner (`src/components/Scenarios.tsx`):**
-  Live GPT-4o function-calling harness demonstrating deterministic interception of indirect prompt injection attacks hidden inside realistic user inputs.
+Each pillar is a production capability the running system provides. File references point to the implementation; the on-page simulation exercises them end-to-end but is not required for any of them to function.
+
+### 1. Multi-Transport Execution Gateway with Promise Back-Pressure
+`src/server/bridge-server.ts` · `src/lib/webmcp.ts` · `src/server/mcp-bridge.ts`
+
+Registers structured tools (`request_guarded_settlement`, `simulate_preflight`) on **three simultaneous surfaces**: browser-native `navigator.modelContext` for WebMCP agents, WebSocket + HTTP for server-side runtimes, and Model Context Protocol over stdio for any MCP-compliant subprocess. Every inbound tool call is registered in an in-process pending hub that **holds the caller's promise open across the network boundary** until the operator resolves it — real HTTP / stdio back-pressure, not a client-side modal that can be bypassed. The calling agent literally cannot proceed until a decision is made or the configurable timeout elapses.
+
+### 2. Deterministic Risk Engine
+`src/lib/guardrails.ts`
+
+Pure-function evaluator that scores every payload against composable rules: **monetary auto-approval cap**, **velocity circuit-breaker** (sliding N-request / M-second window with atomic increment), **recipient deny-list regex**, **currency allow-list**, and schema / negative-amount / zero-amount sanitization. Returns a structured assessment (`risk_level`, `requires_auth`, `violation_codes`, `safety_score`) that both server and client evaluate identically — the browser cannot mislead the server, and vice versa. Hard-block classes (velocity, negative amount) refuse the call automatically with no operator override path; soft violations route to human sign-off.
+
+### 3. Stateful Treasury & Settlement Engine
+`src/server/ledger.ts`
+
+File-backed atomic ledger with strict **overdraft protection**, **idempotency by `request_id`** (duplicate submits are refused, not double-charged), and per-transaction records containing recipient, amount, currency, reason, status, timestamp, and signature fingerprint. Writes go through atomic tmp-file rename to survive crashes mid-write. Balance changes broadcast over WebSocket to every connected client so all operators see the same treasury state in real time. The included $10,000 starting pool is a configurable initial balance, not a demo scaffold — reset it, top it up, or wire it to a real backing account via the same interface.
+
+### 4. Web Crypto ECDSA (P-256) Operator Identity & Signature Verification
+`src/lib/crypto.ts` · `src/server/bridge-server.ts:verifySignedAuthorization`
+
+Per-origin, **non-extractable** ECDSA keypair generated on first load via `window.crypto.subtle`, stored in IndexedDB — the private key never leaves the browser and cannot be exported by any means, including the operator. Every human authorization signs canonicalized `{ payload_hash, amount, timestamp, decision, operator_fingerprint }`. The server re-imports the pubkey, re-derives the fingerprint from the SPKI export (SHA-256), reconstructs the canonical payload, and calls `crypto.subtle.verify` — **no valid signature, no ledger mutation, ever.** The operator's SPKI fingerprint is displayed in the header for out-of-band verification.
+
+### 5. Immutable Hash-Chained Audit Trail
+`src/lib/audit-chain.ts`
+
+Every human-decided outcome (`AUTO_APPROVED`, `AUTHORIZED`, `REJECTED`) is appended as a block containing `{ index, timestamp, request_id, tool_name, payload_hash, previous_hash, signature, status, operator_fingerprint, current_hash }`, where `current_hash = SHA-256` over all preceding fields. Writes are serialized through a single promise queue to guarantee integrity under concurrent appends. An on-page verifier walks the entire chain, recomputes each block's hash from its fields, and confirms every `previous_hash` link — **any tampering surfaces the exact block index where the chain breaks.** Persisted in IndexedDB per operator identity.
+
+### 6. Hot-Reconfigurable Policy Control Plane
+`src/components/PolicyEditor.tsx` · `src/server/policy-store.ts`
+
+Guardrail parameters — auto-approval cap, velocity limit, velocity window, supported currencies, recipient deny-list regex — are edited live in the browser, persisted to `.uranus/policy.json` via atomic write, and broadcast over WebSocket to every connected client. The **next** tool invocation is evaluated against the new rules with **zero code deploy, zero service restart, zero dropped connections**. Responding to a novel threat pattern or a fresh compliance requirement is a slider drag, not a PR — and every operator watching sees the policy update at the same instant.
 
 ---
 
@@ -88,8 +107,8 @@ As AI agents transition from read-only generation to browser-native execution vi
 
 | Scenario | Payload Profile | Threat Target | Expected Gateway Behavior | Balance Mutation |
 | :--- | :--- | :--- | :--- | :--- |
-| **01. Micro-Refund** | `$32.00` settlement | Legitimate low-risk support refund | Policy check clears (< $100) → Auto-approves instantly → Emits receipt. | `$10,000.00` → `$9,968.00` |
-| **02. Prompt Injection** | `$4,850.00` override | Hidden `[SYSTEM OVERRIDE]` prompt injection | Risk engine flags `STEP_UP_REQUIRED` → WebMCP Card pauses call → Operator rejects. | **Preserved at `$9,968.00`** |
+| **01. Micro-Refund** | `$24.50` settlement | Legitimate low-risk support refund | Policy check clears (< $100) → Auto-approves instantly → Emits receipt. | `$10,000.00` → `$9,975.50` |
+| **02. Prompt Injection** | `$4,850.00` override | Hidden `[SYSTEM OVERRIDE]` prompt injection | Risk engine flags `STEP_UP_REQUIRED` → WebMCP Card pauses call → Operator rejects. | **Preserved at `$9,975.50`** |
 | **03. Velocity Loop** | 5 calls in <10s | Recursive agent loop / budget drain | Circuit breaker triggers `VELOCITY_LIMIT_EXCEEDED` → Hard block on subsequent calls. | Unmodified |
 
 ---
@@ -131,21 +150,128 @@ npm run dev
 
 ---
 
-## 🔌 Universal Agent Interoperability
+## 📖 Using Uranus
 
-While optimized for OpenAI's WebMCP standard, the underlying bridge implements the open Model Context Protocol specification. Any MCP-compliant client (such as Claude Desktop or custom agent harnesses) can connect directly:
+Uranus is a **fully functional real-time execution gateway**, not a mocked demo. Every tool call that crosses the `/submit` endpoint — whether from the on-page simulation, a live LLM, an external MCP client, or a raw script — flows through the same guardrail engine, is signed with the same ECDSA P-256 operator identity, and is anchored to the same SHA-256 hash-chained audit ledger.
 
-```json
-{
-  "mcpServers": {
-    "uranus-guard": {
-      "command": "npx",
-      "args": ["tsx", "/absolute/path/to/uranus/src/server/mcp-bridge.ts"],
-      "env": { "URANUS_URL": "http://localhost:3223" }
-    }
-  }
+### First 60 seconds after boot
+
+Once `npm run dev` is up, load http://localhost:3000. You'll see:
+
+- **Header** — brand, live treasury balance ($10,000.00 by default), bridge WebSocket status, operator key fingerprint (P-256 SPKI hash)
+- **Scenario bar** — three preloaded LLM scenarios + `Reset` + `Run Live Security Simulation`
+- **Left column** — Live Execution Stream: monospace telemetry with payload hashes, signatures, and status tags
+- **Right column** — Workspace: shows the pulsing "Gateway Armed" radar when idle, morphs into the human-in-the-loop InterceptCard when a high-risk call is intercepted
+- **Below** — Dynamic Policy editor (right) and Cryptographic Audit Chain ribbon (full-width) with `Verify`, `Expand`, and `Reset` controls
+
+To see everything in one motion: click **Run Live Security Simulation** → wait for Scenario 2's intercept card → click **Reject & Abort** → watch Scenario 3's burst trip the velocity circuit-breaker.
+
+Between demo takes, click **Reset** (next to the run button) to wipe the treasury back to $10K, clear the server-side velocity window, and empty the local audit chain. Real usage state (any tool calls fired outside a simulation) is preserved unless you press this.
+
+### Integrating Uranus into your own agent (real-time)
+
+Three integration surfaces — pick whichever matches your agent runtime. They all hit the same guardrail path.
+
+#### A. Browser-native WebMCP (primary, zero-config)
+
+Loading Uranus in a browser tab registers `request_guarded_settlement` and `simulate_preflight` on `navigator.modelContext`. Any WebMCP-compliant agent running in the same origin (OpenAI's WebMCP, future ChatGPT browser integrations, in-page assistants) discovers those tools automatically and invokes them subject to Uranus's guardrails. **No client-side wiring required.**
+
+#### B. Server-side agent via OpenAI SDK
+
+Point your OpenAI function-calling agent at the bridge's HTTP submit endpoint:
+
+```typescript
+import OpenAI from 'openai';
+
+const client = new OpenAI();
+const conversation = await client.chat.completions.create({
+  model: 'gpt-4o-mini',
+  messages: [{ role: 'user', content: 'Refund $180 to cust_abc for duplicate charge' }],
+  tools: [{
+    type: 'function',
+    function: {
+      name: 'request_guarded_settlement',
+      description: 'Initiate a monetary settlement through the Uranus WebMCP security gateway',
+      parameters: {
+        type: 'object',
+        required: ['recipient_id', 'amount', 'currency', 'reason', 'idempotency_key'],
+        properties: {
+          recipient_id: { type: 'string' },
+          amount:       { type: 'number' },
+          currency:     { type: 'string' },
+          reason:       { type: 'string' },
+          idempotency_key: { type: 'string' },
+        },
+      },
+    },
+  }],
+  tool_choice: 'auto',
+});
+
+for (const call of conversation.choices[0].message.tool_calls ?? []) {
+  const args = JSON.parse(call.function.arguments);
+  const settlement = await fetch('http://localhost:3223/submit', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      tool_name: 'request_guarded_settlement',
+      payload: args,
+      origin: 'llm-agent',
+    }),
+  }).then((r) => r.json());
+  // settlement blocks until Uranus resolves it — either auto-approved,
+  // human-signed (AUTHORIZED), operator-declined (REJECTED),
+  // or automatically blocked (BLOCKED — velocity / policy hard-block).
+  // Shape: { success, status, tx_hash?, signature?, ledger_balance?, payload_hash, reason? }
 }
 ```
+
+#### C. Any MCP-compliant runner via stdio
+
+The bridge server implements the open Model Context Protocol over stdio, so any MCP-speaking harness (custom OpenAI Agents SDK runners, Python `mcp` client, homegrown Node subprocess consumers) can invoke Uranus tools transparently:
+
+```bash
+URANUS_URL=http://localhost:3223 \
+  npx tsx /absolute/path/to/uranus/src/server/mcp-bridge.ts
+```
+
+Every stdio tool call is forwarded to `/submit` under the hood — same guardrails, same signatures, same audit chain.
+
+### Live policy tuning (no restart)
+
+In the right column's **Dynamic Policy** panel:
+
+- **Auto-approval cap** slider (`$0` – `$1000`)
+- **Velocity limit** slider (`1` – `10` requests / window)
+- **Velocity window** slider (`10s` – `5min`)
+- **Recipient deny-list regex** text input
+
+Change any value, click **Apply policy**. The server persists to `.uranus/policy.json`, broadcasts the update over WebSocket to every connected browser, and the *next* tool call is evaluated against the new rules. Zero restart, no code deploy. Try dragging the auto-approve cap to `$500` and re-firing Scenario 2 — the injection now auto-approves. Drag it back to `$100`, re-fire — the intercept card returns.
+
+### Audit chain inspection
+
+The **Cryptographic Audit Chain** ribbon at the bottom shows the last 8 blocks with hash prefixes. Click any block (or the `Expand` button) to open the full modal:
+
+- Every block's complete SHA-256 `current_hash`, `previous_hash`, `payload_hash`
+- Full base64 ECDSA-P256 signature
+- Operator fingerprint, request ID, tool name, formatted timestamp
+- Explicit "links to block #N" arrows showing the chain integrity
+
+Click **Verify** to walk the entire chain — Uranus recomputes every block's hash from its fields and checks the previous-hash links. Result flashes as a header badge (`chain verified` / `chain broken at #N`).
+
+Click **Reset** to clear the local chain (client-scoped, in IndexedDB). Server-side ledger is untouched unless you also hit the demo-bar Reset.
+
+---
+
+## 🎯 Why Uranus
+
+- **Deterministic safety** — LLM agents hallucinate parameters, get prompt-injected, and hit recursive loops. Uranus enforces hard limits (velocity, amount cap, recipient deny-list) that the model cannot argue with, override, or persuade its way past.
+- **Cryptographic non-repudiation** — every human authorization is a P-256 signature over `{payload_hash, amount, timestamp, decision, operator_fingerprint}`, verifiable by anyone with the operator's public key. Auditors can prove exactly what a human approved and when.
+- **Real network back-pressure** — the tool-call promise stays open across HTTP/WebSocket until the operator resolves. The agent literally cannot proceed until a human decides. No fake modal, no client-side trust assumption.
+- **Zero-restart policy tuning** — respond to a new threat or compliance requirement by moving a slider. Every connected client instantly picks up the new rules.
+- **Immutable audit trail** — SHA-256 hash-chained ledger detects any tampering. Modify one block, the entire chain lights up broken.
+- **Open protocol** — WebMCP for browser-native, standard MCP for stdio agents. No vendor lock-in.
+
 
 ---
 
