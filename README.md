@@ -290,6 +290,90 @@ Click **Reset** to clear the local chain (client-scoped, in IndexedDB). Server-s
 
 ---
 
+## 🔧 Production Adapters
+
+Every layer of Uranus above the ledger — WebMCP tool registration, deterministic risk engine, ECDSA P-256 signing, hash-chained audit trail, hot-reconfigurable policy — is **production-grade code, unchanged in production deployment**. Only one layer is stubbed for demonstration: the ledger itself (`src/server/ledger.ts`) writes to a JSON file to represent the treasury visually.
+
+To move real value in production, replace the body of `applySettlement()` with an adapter for the backend of your choice. The signature verification runs *before* the adapter is called, so **nothing cryptographically-unauthorized can ever reach your payment backend**.
+
+### Example: Stripe transfer adapter
+
+```typescript
+// src/server/adapters/stripe.ts
+import Stripe from 'stripe';
+import type { SettleInput, SettleResult } from '../ledger';
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+
+export async function settleViaStripe(input: SettleInput): Promise<SettleResult> {
+  try {
+    const transfer = await stripe.transfers.create(
+      {
+        amount: Math.round(input.amount * 100),      // cents
+        currency: input.currency.toLowerCase(),
+        destination: input.recipient_id,             // Stripe connected-account ID
+        description: input.reason,
+        metadata: {
+          uranus_request_id: input.request_id,
+          operator_signature: input.signature_fingerprint ?? '',
+        },
+      },
+      { idempotencyKey: input.request_id },          // Uranus request_id doubles as Stripe idempotency
+    );
+    const balance = (await stripe.balance.retrieve()).available
+      .reduce((sum, b) => sum + b.amount, 0) / 100;
+    return {
+      ok: true,
+      balance,
+      transaction: {
+        tx_hash: transfer.id,                        // real Stripe transfer id, e.g. "tr_1Abc..."
+        request_id: input.request_id,
+        recipient_id: input.recipient_id,
+        amount: input.amount,
+        currency: input.currency,
+        reason: input.reason,
+        status: input.status,
+        timestamp: Date.now(),
+        signature_fingerprint: input.signature_fingerprint,
+      },
+    };
+  } catch (err) {
+    return {
+      ok: false,
+      reason: err instanceof Error ? err.message : String(err),
+      balance: 0,
+    };
+  }
+}
+```
+
+Then in `src/server/ledger.ts`, delegate:
+
+```typescript
+import { settleViaStripe } from './adapters/stripe';
+
+export async function applySettlement(input: SettleInput): Promise<SettleResult> {
+  return settleViaStripe(input);   // signature is verified upstream in bridge-server.ts
+}
+```
+
+That's the entire swap. Ten lines. The audit chain records the real `tr_...` id; the operator's signature is embedded in Stripe's transfer metadata for out-of-band correlation.
+
+### Other adapters — same shape
+
+| Backend | `tx_hash` becomes | Typical settlement primitive |
+| :--- | :--- | :--- |
+| **Stripe** | Stripe transfer ID (`tr_...`) | `stripe.transfers.create` with idempotency key |
+| **Banking (Wise / Modern Treasury / Column)** | Bank rail reference | Signed `POST /transfers` with idempotency key |
+| **On-chain EVM** | Ethereum tx hash (`0x...`) | ERC-20 `transfer()` signed by treasury key |
+| **On-chain Solana** | Solana signature | `TokenProgram.transfer` on USDC / native |
+| **Escrow / conditional release** | Escrow release ID | `release(escrowId, signature)` |
+| **Internal ERP / accounting** | Internal journal entry ID | Existing settlement endpoint |
+
+All share the same contract: `SettleInput` in, `SettleResult` out. Uranus's security layer neither knows nor cares which backend is on the other side — it's already verified the operator's cryptographic authorization by the time your adapter runs.
+
+---
+
 ## 🗺️ Future Roadmap
 
 - [ ] **Out-of-Band Human Approval Channels:** Push notifications and asynchronous Slack/Telegram webhook approval bots for background AI agent workflows.
