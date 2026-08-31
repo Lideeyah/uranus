@@ -1,7 +1,9 @@
 'use client';
 
-import { KeyRound, Link as LinkIcon, WifiOff } from 'lucide-react';
+import { useState } from 'react';
+import { KeyRound, Link as LinkIcon, Sliders, WifiOff } from 'lucide-react';
 import { useWebMCP } from '@/context/WebMCPContext';
+import PolicyModal from './PolicyModal';
 import UranusLogo from './UranusLogo';
 
 function formatUSD(n: number | undefined | null): string {
@@ -13,52 +15,66 @@ export default function Header() {
   const { ledger, linkStatus, chainVerification, chain, fingerprint } = useWebMCP();
   const chainOk = chainVerification?.valid ?? true;
   const online = linkStatus === 'online';
+  const [policyOpen, setPolicyOpen] = useState(false);
 
   return (
-    <header className="border-b border-border bg-surface/50 backdrop-blur">
-      <div className="mx-auto flex max-w-[1600px] flex-wrap items-center justify-between gap-6 px-8 py-3.5">
-        <div className="flex items-center gap-3">
-          <UranusLogo size={32} />
-          <div className="flex flex-col leading-tight">
-            <span className="text-xl font-semibold tracking-tight text-hi">Uranus</span>
-            <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-meta">
-              WebMCP Security Gateway &amp; Cryptographic Proxy
-            </span>
+    <>
+      <header className="border-b border-border bg-surface/50 backdrop-blur">
+        <div className="mx-auto flex max-w-[1600px] flex-wrap items-center justify-between gap-6 px-8 py-3.5">
+          <div className="flex items-center gap-3">
+            <UranusLogo size={32} />
+            <div className="flex flex-col leading-tight">
+              <span className="text-xl font-semibold tracking-tight text-hi">Uranus</span>
+              <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-meta">
+                WebMCP Security Gateway &amp; Cryptographic Proxy
+              </span>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-5">
+            <Chip label="Treasury" value={formatUSD(ledger?.balance)} emphasized />
+            <Divider />
+            <Chip
+              label="Bridge"
+              value={online ? 'Online' : 'Offline'}
+              leading={
+                online ? (
+                  <StatusDot />
+                ) : (
+                  <WifiOff className="h-3.5 w-3.5 stroke-[1.5] text-muted" />
+                )
+              }
+            />
+            <Divider />
+            <Chip
+              label="Chain"
+              value={`${chain.length} · ${chainOk ? 'verified' : 'broken'}`}
+              leading={<LinkIcon className="h-3.5 w-3.5 stroke-[1.5] text-muted" />}
+            />
+            <Divider />
+            <Chip
+              label="Operator Key"
+              value={
+                fingerprint ? `${fingerprint.slice(0, 8)}··${fingerprint.slice(-6)}` : 'generating…'
+              }
+              mono
+              leading={<KeyRound className="h-3.5 w-3.5 stroke-[1.5] text-muted" />}
+            />
+            <Divider />
+            <button
+              type="button"
+              onClick={() => setPolicyOpen(true)}
+              className="flex items-center gap-1.5 rounded-md border border-tagborder bg-tagbg px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.14em] text-muted transition hover:border-borderhover hover:text-hi"
+              title="Adjust dynamic policy (auto-approval cap, velocity, deny-list)"
+            >
+              <Sliders className="h-3.5 w-3.5 stroke-[1.5]" />
+              Adjust Policy
+            </button>
           </div>
         </div>
-
-        <div className="flex flex-wrap items-center gap-5">
-          <Chip label="Treasury" value={formatUSD(ledger?.balance)} emphasized />
-          <Divider />
-          <Chip
-            label="Bridge"
-            value={online ? 'Online' : 'Offline'}
-            leading={
-              online ? (
-                <StatusDot />
-              ) : (
-                <WifiOff className="h-3.5 w-3.5 stroke-[1.5] text-muted" />
-              )
-            }
-          />
-          <Divider />
-          <Chip
-            label="Chain"
-            value={`${chain.length} · ${chainOk ? 'verified' : 'broken'}`}
-            leading={<LinkIcon className="h-3.5 w-3.5 stroke-[1.5] text-muted" />}
-          />
-          <Divider />
-          <Chip
-            label="Operator Key"
-            value={
-              fingerprint ? `${fingerprint.slice(0, 8)}··${fingerprint.slice(-6)}` : 'generating…'
-            }
-            mono
-            leading={<KeyRound className="h-3.5 w-3.5 stroke-[1.5] text-muted" />}
-          />
-        </div>
-      </div>
-    </header>
+      </header>
+      <PolicyModal open={policyOpen} onClose={() => setPolicyOpen(false)} />
+    </>
   );
 }
 

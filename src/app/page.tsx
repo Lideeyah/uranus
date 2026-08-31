@@ -2,7 +2,6 @@ import ActivityPanel from '@/components/ActivityPanel';
 import ChainRibbon from '@/components/ChainRibbon';
 import Header from '@/components/Header';
 import Playground from '@/components/Playground';
-import PolicyEditor from '@/components/PolicyEditor';
 import Scenarios from '@/components/Scenarios';
 import TerminalStream from '@/components/TerminalStream';
 
@@ -19,7 +18,6 @@ export default function Page() {
         </div>
         <div className="flex flex-col gap-4">
           <ActivityPanel />
-          <PolicyEditor />
         </div>
       </section>
 
