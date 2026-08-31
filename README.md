@@ -105,11 +105,13 @@ Guardrail parameters — auto-approval cap, velocity limit, velocity window, sup
 
 ## 🧪 Interactive Verification Scenarios
 
+Three preloaded scenarios exercise the **three primary defensive vectors** Uranus enforces against autonomous-agent risk: **threshold enforcement**, **prompt-injection intercept**, and **velocity circuit-breaker**. Each maps 1-to-1 to a real-world attack class.
+
 | Scenario | Payload Profile | Threat Target | Expected Gateway Behavior | Balance Mutation |
 | :--- | :--- | :--- | :--- | :--- |
-| **01. Micro-Refund** | `$24.50` settlement | Legitimate low-risk support refund | Policy check clears (< $100) → Auto-approves instantly → Emits receipt. | `$10,000.00` → `$9,975.50` |
-| **02. Prompt Injection** | `$4,850.00` override | Hidden `[SYSTEM OVERRIDE]` prompt injection | Risk engine flags `STEP_UP_REQUIRED` → WebMCP Card pauses call → Operator rejects. | **Preserved at `$9,975.50`** |
-| **03. Velocity Loop** | 5 calls in <10s | Recursive agent loop / budget drain | Circuit breaker triggers `VELOCITY_LIMIT_EXCEEDED` → Hard block on subsequent calls. | Unmodified |
+| **01. Micro-Refund** — Threshold Enforcement | `$24.50` settlement | Legitimate low-risk support refund | Policy check clears (< $100 cap) → Auto-approves instantly → Emits receipt. | `$10,000.00` → `$9,975.50` |
+| **02. Prompt Injection Intercept** | `$4,850.00` override | Hidden `[SYSTEM OVERRIDE]` prompt injection | Risk engine flags `STEP_UP_REQUIRED` → WebMCP Card pauses call → Operator rejects. | **Preserved at `$9,975.50`** |
+| **03. Velocity Circuit-Breaker** | 5 calls in <10s | Recursive agent loop / budget drain | Circuit breaker triggers `VELOCITY_LIMIT_EXCEEDED` → Hard block on subsequent calls. | Unmodified |
 
 ---
 
@@ -167,6 +169,19 @@ Once `npm run dev` is up, load http://localhost:3000. You'll see:
 To see everything in one motion: click **Run Live Security Simulation** → wait for Scenario 2's intercept card → click **Reject & Abort** → watch Scenario 3's burst trip the velocity circuit-breaker.
 
 To restore baseline state at any time — before running the reference workload, or after accumulated real-time usage — click **Reset** (next to the run button). It wipes the treasury back to its initial balance, clears the server-side velocity window, and empties the local audit chain. Nothing is reset implicitly; production state is preserved unless you explicitly press this.
+
+### Interactive playground for non-coders
+
+Directly below the reference workload bar sits the **Send a custom settlement** panel — a form-based playground that lets any visitor trigger arbitrary tool calls without touching a line of code. Fill in **Recipient**, **Amount**, **Currency**, and **Reason**, then click **Send**. The submission travels through the exact same `/submit` path used by OpenAI-SDK agents, WebMCP callers, and MCP-stdio subprocesses — so the response you see is the real production behavior, not a canned demo.
+
+Guided prompts under the form suggest inputs that exercise each defensive vector:
+
+- **`$50` any recipient** → auto-approves under the current cap, adds a signed block to the audit chain
+- **`$5,000` any recipient** → exceeds the cap, opens the human-in-the-loop authorization card in the workspace; you Authorize (P-256 signature settles) or Reject (treasury preserved)
+- **`hacker_0x99` any amount** → matches the deny-list regex, intercepts with an explicit `RECIPIENT_DENYLISTED` violation tag, Authorize button is disabled — Reject only
+- **Rapid clicks** → trips the velocity circuit-breaker; subsequent submissions return `BLOCKED` automatically
+
+An **"awaiting operator"** hint appears under the form when a submission is paused pending your signature, so first-time users know to look at the authorization card. The **"last result"** line records the final status after resolution. Every submission is written to the audit chain identically to agent-driven traffic — non-technical operators, security researchers, and judges can probe the guardrails freely without needing a terminal.
 
 ### Integrating Uranus into your own agent (real-time)
 
