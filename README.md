@@ -35,9 +35,9 @@ As AI agents transition from read-only generation to browser-native execution vi
 
 ```
 ┌────────────────────────────────────────────────────────────────────────────────┐
-│                   ADVERSARIAL SUITE: GPT-4o / OPENAI SDK                       │
-│  - Ingests untrusted customer context (Indirect Prompt Injection)              │
-│  - Emits tool call: request_guarded_settlement({ amount: 4850.00, ... })       │
+│              AGENT CLIENT: OPENAI SDK / WEBMCP / MCP STDIO RUNNER              │
+│  - Ingests user context (potentially untrusted — email, chat, doc, review)     │
+│  - Emits structured tool call: request_guarded_settlement({ amount, ... })     │
 └───────────────────────────────────────┬────────────────────────────────────────┘
                                         │ Network Boundary (stdio / SSE / WS)
                                         ▼
@@ -117,7 +117,7 @@ Guardrail parameters — auto-approval cap, velocity limit, velocity window, sup
 
 ### Prerequisites
 - Node.js 18+
-- (Optional) `OPENAI_API_KEY` for live adversarial GPT-4o streaming (runs in zero-cost deterministic mode if omitted).
+- (Optional) `OPENAI_API_KEY` — only required if you want the on-page reference workload to drive the LLM-backed micro-refund path with a real GPT-4o-mini function call. Every real-time integration surface (WebMCP, server-side agents, MCP stdio) works without it.
 
 ### 1. Installation
 ```bash
@@ -152,21 +152,21 @@ npm run dev
 
 ## 📖 Using Uranus
 
-Uranus is a **fully functional real-time execution gateway**, not a mocked demo. Every tool call that crosses the `/submit` endpoint — whether from the on-page simulation, a live LLM, an external MCP client, or a raw script — flows through the same guardrail engine, is signed with the same ECDSA P-256 operator identity, and is anchored to the same SHA-256 hash-chained audit ledger.
+Uranus is a **production execution gateway** — install it, point any agent runtime at it, and every tool call that crosses `/submit` (from a browser WebMCP agent, a server-side OpenAI SDK app, an external MCP client, or a raw script) flows through the same guardrail engine, is signed with the same ECDSA P-256 operator identity, and is anchored to the same SHA-256 hash-chained audit ledger. The on-page reference workload is one caller among many, not the product.
 
 ### First 60 seconds after boot
 
 Once `npm run dev` is up, load http://localhost:3000. You'll see:
 
 - **Header** — brand, live treasury balance ($10,000.00 by default), bridge WebSocket status, operator key fingerprint (P-256 SPKI hash)
-- **Scenario bar** — three preloaded LLM scenarios + `Reset` + `Run Live Security Simulation`
+- **Reference workload bar** — three preloaded scenarios that exercise the guardrail engine against real-world attack patterns, plus `Reset` and `Run Live Security Simulation` controls
 - **Left column** — Live Execution Stream: monospace telemetry with payload hashes, signatures, and status tags
 - **Right column** — Workspace: shows the pulsing "Gateway Armed" radar when idle, morphs into the human-in-the-loop InterceptCard when a high-risk call is intercepted
 - **Below** — Dynamic Policy editor (right) and Cryptographic Audit Chain ribbon (full-width) with `Verify`, `Expand`, and `Reset` controls
 
 To see everything in one motion: click **Run Live Security Simulation** → wait for Scenario 2's intercept card → click **Reject & Abort** → watch Scenario 3's burst trip the velocity circuit-breaker.
 
-Between demo takes, click **Reset** (next to the run button) to wipe the treasury back to $10K, clear the server-side velocity window, and empty the local audit chain. Real usage state (any tool calls fired outside a simulation) is preserved unless you press this.
+To restore baseline state at any time — before running the reference workload, or after accumulated real-time usage — click **Reset** (next to the run button). It wipes the treasury back to its initial balance, clears the server-side velocity window, and empties the local audit chain. Nothing is reset implicitly; production state is preserved unless you explicitly press this.
 
 ### Integrating Uranus into your own agent (real-time)
 
@@ -259,7 +259,7 @@ The **Cryptographic Audit Chain** ribbon at the bottom shows the last 8 blocks w
 
 Click **Verify** to walk the entire chain — Uranus recomputes every block's hash from its fields and checks the previous-hash links. Result flashes as a header badge (`chain verified` / `chain broken at #N`).
 
-Click **Reset** to clear the local chain (client-scoped, in IndexedDB). Server-side ledger is untouched unless you also hit the demo-bar Reset.
+Click **Reset** to clear the local chain (client-scoped, in IndexedDB). Server-side ledger is untouched unless you also hit the top-bar Reset.
 
 ---
 
